@@ -51,7 +51,7 @@ print(print_csv_data(stocks.copy()))
 
 
 # 3.1 Вывести график изменения акций
-def plot_high_prices(data_frames):
+def plot_prices(data_frames):
     # Создайте пустой график
     plt.figure(figsize=(10, 6))
 
@@ -61,12 +61,12 @@ def plot_high_prices(data_frames):
         df['Date'] = pd.to_datetime(df['Date'])
 
         # Постройте график для столбца "High"
-        plt.plot(df['Date'], df['High'], label=file_name.split(".")[0])
+        plt.plot(df['Date'], df['Price'], label=file_name.split(".")[0])
 
     # Настройте оси и заголовок
     plt.xlabel('Date')
-    plt.ylabel('High Price')
-    plt.title('High Prices Over Time')
+    plt.ylabel('Price')
+    plt.title('Prices Over Time')
 
     # Добавьте легенду
     plt.legend()
@@ -75,7 +75,7 @@ def plot_high_prices(data_frames):
     plt.show()
 
 
-plot_high_prices(stocks.copy())
+plot_prices(stocks.copy())
 
 
 # 3.2 Рассчитать среднюю доходность и риск для отдельной акции
@@ -96,9 +96,9 @@ def calculate_returns_risk_for_multiple_stocks(data_frames):
 
     return results
 
-results = calculate_returns_risk_for_multiple_stocks(stocks.copy())
+returns_risk = calculate_returns_risk_for_multiple_stocks(stocks.copy())
 
-for stock_name, metrics in results.items():
+for stock_name, metrics in returns_risk.items():
     print(f"\nМетрики для акции '{stock_name}':")
     print(f"Средняя доходность: {metrics['Average Return']:.4f}")
     print(f"Риск: {metrics['Risk']:.4f}")
@@ -136,3 +136,36 @@ plot_matrix(correlation, "Корреляции", cmap='YlGnBu')
 
 
 # 4. Построение модели Марковица и проверка модели на данных, посмотреть на разной ожидаемой доходности
+merged_data = pd.concat([df['Price'] for df in stocks.values()], axis=1, keys=stocks.keys())
+returns = merged_data.pct_change()
+expected_returns = returns.mean()
+num_portfolios = 10000
+results = np.zeros((3, num_portfolios))
+for i in range(num_portfolios):
+    weights = np.random.random(len(stocks))
+    weights /= np.sum(weights)
+
+    # Ожидаемая доходность портфеля
+    portfolio_return = np.sum(weights * expected_returns) * 252  # Умножаем на 252 рабочих дня в году
+
+    # Стандартное отклонение портфеля (риск)
+    portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(covariance, weights))) * np.sqrt(252)
+
+    # Записываем результаты в массив
+    results[0,i] = portfolio_return
+    results[1,i] = portfolio_volatility
+    results[2,i] = portfolio_return / portfolio_volatility  # Отношение Шарпа (показатель эффективности)
+
+# Построение эффективного фронта
+def plot_efficient_frontier(results):
+    # Построение эффективного фронта
+    plt.figure(figsize=(12, 8))
+    plt.scatter(results[1, :], results[0, :], c=results[2, :], cmap='viridis', marker='o', s=10, alpha=0.3)
+    plt.colorbar(label='Шарп-отношение')
+    plt.title('Эффективный фронт')
+    plt.xlabel('Стандартное отклонение (риск)')
+    plt.ylabel('Ожидаемая доходность')
+    plt.show()
+
+
+plot_efficient_frontier(results)
