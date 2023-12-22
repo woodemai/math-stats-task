@@ -10,7 +10,6 @@ from prettytable import PrettyTable
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import seaborn as sb
-from tabulate import tabulate
 
 
 # загружаем новые файлы
@@ -48,7 +47,6 @@ stocks = read_csv_files(folder)
 print(print_csv_data(stocks.copy()))
 
 # 3. Работа с начальными данными
-
 
 # 3.1 Вывести график изменения акций
 def plot_prices(data_frames):
@@ -110,10 +108,10 @@ def calculate_covariance_correlation_matrices(data_frames):
     merged_data = pd.concat([df['Price'] for df in data_frames.values()], axis=1, keys=data_frames.keys())
 
     # Рассчитываем матрицу ковариаций
-    covariance_matrix = merged_data.pct_change().cov()
+    covariance_matrix = merged_data.pct_change(fill_method=None).cov()
 
     # Рассчитываем матрицу корреляций
-    correlation_matrix = merged_data.pct_change().corr()
+    correlation_matrix = merged_data.pct_change(fill_method=None).corr()
     return covariance_matrix, correlation_matrix
 
 def plot_matrix(matrix, title, cmap='OrRd'):
@@ -137,7 +135,7 @@ plot_matrix(correlation, "Корреляции", cmap='YlGnBu')
 
 # 4. Построение модели Марковица и проверка модели на данных, посмотреть на разной ожидаемой доходности
 merged_data = pd.concat([df['Price'] for df in stocks.values()], axis=1, keys=stocks.keys())
-returns = merged_data.pct_change()
+returns = merged_data.pct_change(fill_method=None)
 expected_returns = returns.mean()
 num_portfolios = 10000
 results = np.zeros((3, num_portfolios))
@@ -156,16 +154,65 @@ for i in range(num_portfolios):
     results[1,i] = portfolio_volatility
     results[2,i] = portfolio_return / portfolio_volatility  # Отношение Шарпа (показатель эффективности)
 
-# Построение эффективного фронта
-def plot_efficient_frontier(results):
-    # Построение эффективного фронта
+
+# Добавляем вывод диаграммы для максимальной и минимальной доходности
+def plot_optimal_portfolios(results):
+    # Находим портфели с максимальной и минимальной доходностью
+    max_return_portfolio = results[:, results[0, :].argmax()]
+    min_return_portfolio = results[:, results[0, :].argmin()]
+
+    # Построение графика
     plt.figure(figsize=(12, 8))
     plt.scatter(results[1, :], results[0, :], c=results[2, :], cmap='viridis', marker='o', s=10, alpha=0.3)
     plt.colorbar(label='Шарп-отношение')
-    plt.title('Эффективный фронт')
+    plt.title('Эффективный фронт с оптимальными портфелями')
     plt.xlabel('Стандартное отклонение (риск)')
     plt.ylabel('Ожидаемая доходность')
+
+    # Выделение точек с максимальной и минимальной доходностью
+    plt.scatter(max_return_portfolio[1], max_return_portfolio[0], marker='*', color='red', s=500, label='Максимальная доходность')
+    plt.scatter(min_return_portfolio[1], min_return_portfolio[0], marker='*', color='blue', s=500, label='Минимальная доходность')
+
+    plt.legend()
+
     plt.show()
 
 
-plot_efficient_frontier(results)
+plot_optimal_portfolios(results)
+
+# Круговая диаграмма для оптимального портфеля с максимальной доходностью
+def plot_max_return_pie(weights, max_return_portfolio):
+    labels = stocks.keys()
+    sizes = weights
+    colors = plt.cm.viridis(np.linspace(0, 1, len(labels)))
+
+    plt.figure(figsize=(8, 8))
+    plt.pie(sizes, labels=labels, autopct='%1.1f%%', colors=colors, startangle=90)
+    plt.title('Оптимальный портфель для максимальной доходности')
+    plt.show()
+
+# Круговая диаграмма для оптимального портфеля с минимальной доходностью
+def plot_min_return_pie(weights, min_return_portfolio):
+    labels = stocks.keys()
+    sizes = weights
+    colors = plt.cm.viridis(np.linspace(0, 1, len(labels)))
+
+    plt.figure(figsize=(8, 8))
+    plt.pie(sizes, labels=labels, autopct='%1.1f%%', colors=colors, startangle=90)
+    plt.title('Оптимальный портфель для минимальной доходности')
+    plt.show()
+
+# Создаем случайные веса для оптимальных портфелей
+weights_max_return = np.random.random(len(stocks))
+weights_max_return /= np.sum(weights_max_return)
+
+weights_min_return = np.random.random(len(stocks))
+weights_min_return /= np.sum(weights_min_return)
+
+# Оптимальные портфели
+max_return_portfolio = results[:, results[0, :].argmax()]
+min_return_portfolio = results[:, results[0, :].argmin()]
+
+# Выводим результаты
+plot_max_return_pie(weights_max_return, max_return_portfolio)
+plot_min_return_pie(weights_min_return, min_return_portfolio)
