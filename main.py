@@ -1,36 +1,23 @@
 # Подключаем библиотеки
-import  os
-import scipy
-import pandas as pd
-import numpy as np
-from numpy import arange
-from scipy import stats
-import plotly.express as px
-from prettytable import PrettyTable
+import os
+import glob
+
 import matplotlib.pyplot as plt
-import plotly.graph_objects as go
-import seaborn as sb
+import numpy as np
+import pandas as pd
 
 
-# загружаем новые файлы
+# загружаем все файлы
 def read_csv_files(folder_path):
     data_frames = {}
+    file_paths = glob.glob(os.path.join(folder_path, '*.csv'))
 
-    # Check if the folder path exists
-    if not os.path.exists(folder_path):
-        raise FileNotFoundError(f"The specified folder '{folder_path}' does not exist.")
-
-    # Loop through all files in the folder
-    for file_name in os.listdir(folder_path):
-        if file_name.endswith(".csv"):
-            file_path = os.path.join(folder_path, file_name)
-
-            # Read the CSV file into a DataFrame
-            try:
-                df = pd.read_csv(file_path, sep=';')
-                data_frames[file_name] = df
-            except Exception as e:
-                print(f"Error reading file '{file_name}': {e}")
+    for file_path in file_paths:
+        try:
+            df = pd.read_csv(file_path, sep=';')
+            data_frames[os.path.basename(file_path)] = df
+        except Exception as e:
+            print(f"Error reading file '{file_path}': {e}")
 
     return data_frames
 
@@ -81,18 +68,14 @@ def calculate_returns_risk_for_multiple_stocks(data_frames):
     results = {}
 
     for stock_name, df in data_frames.items():
-        prices = df['Price']
-
-        # Рассчитываем ежедневные доходности
-        returns = prices.pct_change()
-
-        # Рассчитываем среднюю доходность и риск
-        average_return = np.mean(returns)
-        risk = np.std(returns)
+        returns = df['Price'].pct_change()
+        average_return = returns.mean()
+        risk = returns.std()
 
         results[stock_name] = {'Average Return': average_return, 'Risk': risk}
 
     return results
+
 
 returns_risk = calculate_returns_risk_for_multiple_stocks(stocks.copy())
 
@@ -104,15 +87,13 @@ for stock_name, metrics in returns_risk.items():
 
 # 3.3 Построить матрицы корреляций и ковариаций
 def calculate_covariance_correlation_matrices(data_frames):
-    # Объединяем данные по столбцу 'Date'
-    merged_data = pd.concat([df['Price'] for df in data_frames.values()], axis=1, keys=data_frames.keys())
+    prices = pd.concat([df['Price'] for df in data_frames.values()], axis=1, keys=data_frames.keys())
+    returns = prices.pct_change(fill_method=None)
+    covariance_matrix = returns.cov()
+    correlation_matrix = returns.corr()
 
-    # Рассчитываем матрицу ковариаций
-    covariance_matrix = merged_data.pct_change(fill_method=None).cov()
-
-    # Рассчитываем матрицу корреляций
-    correlation_matrix = merged_data.pct_change(fill_method=None).corr()
     return covariance_matrix, correlation_matrix
+
 
 def plot_matrix(matrix, title, cmap='OrRd'):
     # Визуализируем матрицу
